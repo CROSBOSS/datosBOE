@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Empresas · BORME</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f4f2; --surface-1: #fcfcfb; --border: #e3e2de; --grid: #ecebe7;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7974;
+    --series-1: #2a78d6; --series-2: #eb6834; --accent: #2a78d6;
+    --good: #0f7b3e; --warning: #a86a00; --critical: #c62828;
+    --radius: 10px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2c; --grid: #262624;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --series-1: #3987e5; --series-2: #d95926; --accent: #3987e5;
+      --good: #4cc27a; --warning: #e0a030; --critical: #ef6a6a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-0); color: var(--text-primary); font-size: 14px; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--text-secondary); font-size: 13px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+  input, select { font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; min-width: 150px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-1); }
+  .seg button { font: inherit; border: 0; background: none; color: var(--text-secondary); padding: 7px 12px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .kpi .lbl { font-size: 12px; color: var(--text-secondary); }
+  .kpi .val { font-size: 28px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .delta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin: 2px 0 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  svg text { fill: var(--text-muted); font-size: 11px; }
+  .tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; z-index: 10; }
+  .tip b { display: block; margin-bottom: 4px; }
+  .tip .row { display: flex; gap: 8px; align-items: center; color: var(--text-secondary); }
+  .tip .row i { width: 8px; height: 8px; border-radius: 2px; }
+  .tabs { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { font-size: 12px; color: var(--text-secondary); font-weight: 500; cursor: pointer; user-select: none; white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.row:hover td { background: var(--surface-0); cursor: pointer; }
+  tr.det td { color: var(--text-secondary); background: var(--surface-0); font-size: 12px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid currentColor; white-space: nowrap; }
+  .b-activa { color: var(--good); } .b-disuelta { color: var(--warning); }
+  .b-extinguida { color: var(--text-muted); } .b-concurso { color: var(--critical); }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
+  .pager button { font: inherit; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-primary);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .feed { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; }
+  .feed li { display: grid; grid-template-columns: 78px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
+  .feed .f { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .feed .t { font-size: 12px; color: var(--text-secondary); }
+  .empty { color: var(--text-muted); padding: 24px 0; text-align: center; }
+  footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Empresas en el BORME</h1>
+      <div class="sub" id="sub">Cargando…</div>
+    </div>
+  </header>
+
+  <div class="filters">
+    <label>Provincia <select id="f-prov"></select></label>
+    <label>Municipio <input id="f-mun" placeholder="p. ej. Paterna"></label>
+    <label>Objeto social contiene <input id="f-obj" placeholder="p. ej. fotovolt, software"></label>
+    <label>Periodo
+      <span class="seg" id="f-per">
+        <button data-w="4">4 sem</button><button data-w="13" aria-pressed="true">3 meses</button>
+        <button data-w="26">6 meses</button><button data-w="52">12 meses</button>
+      </span>
+    </label>
+  </div>
+
+  <section class="kpis">
+    <div class="card kpi"><div class="lbl">Constituciones</div><div class="val" id="k-c">–</div><div class="delta" id="k-cd"></div></div>
+    <div class="card kpi"><div class="lbl">Extinciones</div><div class="val" id="k-x">–</div><div class="delta" id="k-xd"></div></div>
+    <div class="card kpi"><div class="lbl">Concursos</div><div class="val" id="k-k">–</div><div class="delta" id="k-kd"></div></div>
+    <div class="card kpi"><div class="lbl">Capital medio constituido</div><div class="val" id="k-cap">–</div><div class="delta" id="k-capd"></div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Altas y bajas por semana</h2>
+      <div class="legend"><span><i style="background:var(--series-1)"></i>Constituciones</span><span><i style="background:var(--series-2)"></i>Extinciones</span></div>
+      <div id="ch-sem"></div>
+    </div>
+    <div class="card">
+      <h2>Municipios con más constituciones</h2>
+      <div class="legend"><span>En el periodo seleccionado</span></div>
+      <div id="ch-mun"></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <div class="tabs">
+        <span class="seg" id="t-vista">
+          <button data-v="nuevas" aria-pressed="true">Nuevas</button><button data-v="bajas">Bajas</button>
+          <button data-v="concurso">Concurso</button><button data-v="todas">Todas</button>
+        </span>
+        <input id="t-q" placeholder="Buscar empresa…" style="min-width:200px">
+      </div>
+      <table>
+        <thead><tr>
+          <th data-k="fecha">Fecha</th><th data-k="n">Empresa</th><th data-k="m" class="hide-sm">Municipio</th>
+          <th data-k="c" class="num hide-sm">Capital</th><th data-k="s">Estado</th>
+        </tr></thead>
+        <tbody id="t-body"></tbody>
+      </table>
+      <div class="pager"><span id="t-info"></span><button id="t-prev">‹</button><button id="t-next">›</button>
+        <button id="t-csv">CSV</button></div>
+    </div>
+    <div class="card">
+      <h2>Últimos movimientos</h2>
+      <div class="legend"><span>Últimos 90 días · cambios de capital, domicilio, nombre, bajas…</span></div>
+      <ul class="feed" id="feed"></ul>
+    </div>
+  </section>
+
+  <footer>Fuente: Boletín Oficial del Registro Mercantil (Sección A), vía API de datos abiertos de la AEBOE.
+    Datos procesados automáticamente; pueden contener errores de clasificación.</footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmtN = n => n.toLocaleString("es-ES");
+const fmtE = n => n == null ? "–" : n.toLocaleString("es-ES", { maximumFractionDigits: 0 }) + " €";
+const fmtD = s => s ? s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(2, 4) : "";
+const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const ESTADOS = { activa: "Activa", disuelta: "Disuelta", extinguida: "Extinguida", concurso: "⚠ Concurso" };
+const tip = $("#tip");
+let D, porId, st = { prov: "", mun: "", obj: [], semanas: 13, vista: "nuevas", q: "", sortK: "fecha", sortD: -1, pag: 0 };
+
+function mondayOf(iso) { const d = new Date(iso + "T00:00:00Z"); const w = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - w); return d.toISOString().slice(0, 10); }
+function addDays(iso, n) { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+
+function filtradas() {
+  return D.empresas.filter(e =>
+    (!st.prov || e.p === st.prov) &&
+    (!st.mun || norm(e.m).includes(st.mun)) &&
+    (!st.obj.length || st.obj.some(w => norm(e.o).includes(w))));
+}
+
+function showTip(ev, html) {
+  tip.innerHTML = html; tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const hideTip = () => tip.style.display = "none";
+
+function chartSemanas(emps, desde, hasta) {
+  const semanas = []; for (let s = mondayOf(desde); s <= hasta; s = addDays(s, 7)) semanas.push(s);
+  const c = Object.fromEntries(semanas.map(s => [s, 0])), x = { ...c };
+  for (const e of emps) {
+    if (e.fc && e.fc >= desde && e.fc <= hasta) c[mondayOf(e.fc)] = (c[mondayOf(e.fc)] || 0) + 1;
+    if (e.fx && e.fx >= desde && e.fx <= hasta) x[mondayOf(e.fx)] = (x[mondayOf(e.fx)] || 0) + 1;
+  }
+  const el = $("#ch-sem"), W = el.clientWidth || 640, H = 240, m = { t: 8, r: 8, b: 26, l: 36 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const max = Math.max(1, ...semanas.map(s => Math.max(c[s], x[s])));
+  const step = niceStep(max), top = Math.ceil(max / step) * step;
+  const gw = iw / semanas.length, gap = 2, bw = Math.max(2, Math.min(18, (gw - 6) / 2 - gap / 2));
+  const y = v => m.t + ih - (v / top) * ih;
+  let g = "";
+  for (let v = 0; v <= top; v += step)
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${fmtN(v)}</text>`;
+  const every = Math.ceil(semanas.length / 8);
+  semanas.forEach((s, i) => {
+    const cx = m.l + gw * i + gw / 2;
+    g += bar(cx - bw - gap / 2, y(c[s]), bw, m.t + ih - y(c[s]), "var(--series-1)");
+    g += bar(cx + gap / 2, y(x[s]), bw, m.t + ih - y(x[s]), "var(--series-2)");
+    g += `<rect class="hit" data-i="${i}" x="${m.l + gw * i}" y="${m.t}" width="${gw}" height="${ih}" fill="transparent"/>`;
+    if (i % every === 0) g += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${fmtD(s).slice(0, 5)}</text>`;
+  });
+  el.innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="Constituciones y extinciones por semana">${g}</svg>`;
+  el.querySelectorAll(".hit").forEach(r => {
+    r.addEventListener("mousemove", ev => { const s = semanas[+r.dataset.i];
+      showTip(ev, `<b>Semana del ${fmtD(s)}</b><div class="row"><i style="background:var(--series-1)"></i>Constituciones: ${fmtN(c[s])}</div><div class="row"><i style="background:var(--series-2)"></i>Extinciones: ${fmtN(x[s])}</div>`); });
+    r.addEventListener("mouseleave", hideTip);
+  });
+}
+function bar(x, y, w, h, fill) {
+  if (h <= 0) return "";
+  const r = Math.min(4, w / 2, h);
+  return `<path d="M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z" fill="${fill}"/>`;
+}
+function niceStep(max) { const raw = max / 4, p = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 5, 10].map(k => k * p).find(s => s >= raw) || p; }
+
+function chartMunicipios(emps, desde, hasta) {
+  const cnt = {};
+  for (const e of emps) if (e.fc && e.fc >= desde && e.fc <= hasta && e.m) cnt[e.m] = (cnt[e.m] || 0) + 1;
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const el = $("#ch-mun");
+  if (!top.length) { el.innerHTML = `<div class="empty">Sin constituciones en el periodo</div>`; return; }
+  const W = el.clientWidth || 400, rh = 22, H = top.length * rh + 4, lw = Math.min(150, W * 0.38), max = top[0][1];
+  let g = "";
+  top.forEach(([mun, n], i) => {
+    const y = i * rh + 3, w = Math.max(2, (W - lw - 44) * n / max);
+    g += `<text x="${lw - 8}" y="${y + 13}" text-anchor="end">${esc(mun.length > 22 ? mun.slice(0, 21) + "…" : mun)}</text>`;
+    g += `<path d="M${lw},${y + 2}H${lw + w - 4}Q${lw + w},${y + 2} ${lw + w},${y + 6}V${y + 12}Q${lw + w},${y + 16} ${lw + w - 4},${y + 16}H${lw}Z" fill="var(--series-1)"/>`;
+    g += `<text x="${lw + w + 6}" y="${y + 13}" style="fill:var(--text-secondary)">${fmtN(n)}</text>`;
+    g += `<rect class="hit" data-i="${i}" x="0" y="${y}" width="${W}" height="${rh}" fill="transparent"/>`;
+  });
+  el.innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="Municipios con más constituciones">${g}</svg>`;
+  el.querySelectorAll(".hit").forEach(r => {
+    r.addEventListener("mousemove", ev => { const [mun, n] = top[+r.dataset.i]; showTip(ev, `<b>${esc(mun)}</b>${fmtN(n)} constituciones · clic para filtrar`); });
+    r.addEventListener("mouseleave", hideTip);
+    r.addEventListener("click", () => { const mun = top[+r.dataset.i][0]; $("#f-mun").value = mun; st.mun = norm(mun); render(); });
+  });
+}
+
+function kpis(emps, desde, hasta) {
+  const prevD = addDays(desde, -(st.semanas * 7)), prevH = addDays(desde, -1);
+  const cuenta = (k, a, b) => emps.filter(e => e[k] && e[k] >= a && e[k] <= b).length;
+  const set = (id, k) => {
+    const n = cuenta(k, desde, hasta), p = cuenta(k, prevD, prevH);
+    $(id).textContent = fmtN(n);
+    const pct = p ? Math.round((n - p) / p * 100) : null;
+    $(id + "d").textContent = pct == null ? "sin periodo anterior" : `${pct >= 0 ? "+" : ""}${pct}% vs periodo anterior`;
+  };
+  set("#k-c", "fc"); set("#k-x", "fx"); set("#k-k", "fk");
+  const caps = emps.filter(e => e.fc && e.fc >= desde && e.fc <= hasta && e.c).map(e => e.c);
+  $("#k-cap").textContent = caps.length ? fmtE(caps.reduce((a, b) => a + b, 0) / caps.length) : "–";
+  caps.sort((a, b) => a - b);
+  $("#k-capd").textContent = caps.length ? `mediana ${fmtE(caps[Math.floor(caps.length / 2)])}` : "";
+}
+
+let filasTabla = [];
+function tabla(emps, desde, hasta) {
+  const q = norm(st.q);
+  let rows = emps.map(e => ({ ...e,
+    fecha: st.vista === "bajas" ? e.fx : st.vista === "concurso" ? e.fk : st.vista === "nuevas" ? e.fc : (e.u || e.fc) }));
+  if (st.vista === "nuevas") rows = rows.filter(e => e.fc && e.fc >= desde && e.fc <= hasta);
+  if (st.vista === "bajas") rows = rows.filter(e => e.fx && e.fx >= desde && e.fx <= hasta);
+  if (st.vista === "concurso") rows = rows.filter(e => e.fk && e.fk >= desde && e.fk <= hasta);
+  if (q) rows = rows.filter(e => norm(e.n).includes(q));
+  const k = st.sortK, d = st.sortD;
+  rows.sort((a, b) => ((a[k] ?? "") > (b[k] ?? "") ? 1 : (a[k] ?? "") < (b[k] ?? "") ? -1 : 0) * d);
+  filasTabla = rows;
+  const PER = 25, pages = Math.max(1, Math.ceil(rows.length / PER));
+  st.pag = Math.min(st.pag, pages - 1);
+  const slice = rows.slice(st.pag * PER, st.pag * PER + PER);
+  $("#t-body").innerHTML = slice.length ? slice.map(e => `
+    <tr class="row" data-id="${e.id}"><td>${fmtD(e.fecha)}</td><td>${esc(e.n)}</td><td class="hide-sm">${esc(e.m || "")}</td>
+    <td class="num hide-sm">${e.c ? fmtE(e.c) : ""}</td><td><span class="badge b-${e.s}">${ESTADOS[e.s] || e.s}</span></td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">Sin resultados</td></tr>`;
+  $("#t-info").textContent = rows.length ? `${fmtN(st.pag * PER + 1)}–${fmtN(Math.min(rows.length, st.pag * PER + PER))} de ${fmtN(rows.length)}` : "";
+  $("#t-prev").disabled = st.pag === 0; $("#t-next").disabled = st.pag >= pages - 1;
+  document.querySelectorAll("th[data-k]").forEach(th => th.textContent = th.textContent.replace(/ [▲▼]$/, "") + (th.dataset.k === k ? (d > 0 ? " ▲" : " ▼") : ""));
+}
+
+function feed(emps) {
+  const ids = new Set(emps.map(e => e.id));
+  const ev = D.eventos.filter(e => ids.has(e.id)).slice(0, 150);
+  $("#feed").innerHTML = ev.length ? ev.map(e => { const em = porId.get(e.id);
+    return `<li><span class="f">${fmtD(e.f)}</span><span>${esc(em ? em.n : "")}<br><span class="t">${esc(e.t)}${em && em.m ? " · " + esc(em.m) : ""}</span></span></li>`; }).join("")
+    : `<li class="empty">Sin movimientos</li>`;
+}
+
+function render() {
+  const hasta = D.ultima_publicacion, desde = addDays(mondayOf(hasta), -(st.semanas - 1) * 7);
+  const emps = filtradas();
+  kpis(emps, desde, hasta); chartSemanas(emps, desde, hasta); chartMunicipios(emps, desde, hasta);
+  tabla(emps, desde, hasta); feed(emps);
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
+const debounce = (f, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
+
+function init() {
+  porId = new Map(D.empresas.map(e => [e.id, e]));
+  $("#sub").textContent = `Última publicación ${fmtD(D.ultima_publicacion)} · ${fmtN(D.empresas.length)} empresas con actividad reciente · actualizado ${D.generado.slice(0, 10)}`;
+  $("#f-prov").innerHTML = (D.provincias.length > 1 ? `<option value="">Todas</option>` : "") +
+    D.provincias.map(p => `<option value="${p.cod}">${esc(p.nombre)}</option>`).join("");
+  st.prov = $("#f-prov").value;
+  $("#f-prov").onchange = e => { st.prov = e.target.value; st.pag = 0; render(); };
+  $("#f-mun").oninput = debounce(e => { st.mun = norm(e.target.value.trim()); st.pag = 0; render(); });
+  $("#f-obj").oninput = debounce(e => { st.obj = e.target.value.split(",").map(w => norm(w.trim())).filter(Boolean); st.pag = 0; render(); });
+  $("#t-q").oninput = debounce(e => { st.q = e.target.value; st.pag = 0; render(); });
+  document.querySelectorAll("#f-per button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#f-per button").forEach(x => x.setAttribute("aria-pressed", x === b)); st.semanas = +b.dataset.w; st.pag = 0; render(); });
+  document.querySelectorAll("#t-vista button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#t-vista button").forEach(x => x.setAttribute("aria-pressed", x === b)); st.vista = b.dataset.v; st.pag = 0; render(); });
+  document.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
+    st.sortD = st.sortK === th.dataset.k ? -st.sortD : (th.dataset.k === "fecha" || th.dataset.k === "c" ? -1 : 1); st.sortK = th.dataset.k; render(); });
+  $("#t-prev").onclick = () => { st.pag--; render(); };
+  $("#t-next").onclick = () => { st.pag++; render(); };
+  $("#t-body").onclick = e => {
+    const tr = e.target.closest("tr.row"); if (!tr) return;
+    if (tr.nextElementSibling?.classList.contains("det")) { tr.nextElementSibling.remove(); return; }
+    const em = porId.get(+tr.dataset.id);
+    tr.insertAdjacentHTML("afterend", `<tr class="det"><td colspan="5"><b>Objeto social:</b> ${esc(em.o || "—")}<br>
+      Constitución: ${fmtD(em.fc) || "—"} · Última aparición: ${fmtD(em.u)} · Actos registrados: ${em.k}</td></tr>`);
+  };
+  $("#t-csv").onclick = () => {
+    const cols = ["fecha", "n", "m", "c", "s", "o"], head = ["fecha", "empresa", "municipio", "capital", "estado", "objeto_social"];
+    const csv = [head.join(";"), ...filasTabla.map(r => cols.map(c => `"${String(r[c] ?? "").replace(/"/g, '""')}"`).join(";"))].join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+    a.download = `empresas_${st.vista}.csv`; a.click();
+  };
+  addEventListener("resize", debounce(render, 150));
+  render();
+}
+
+fetch("data.json", { cache: "no-cache" }).then(r => r.json()).then(d => { D = d; init(); })
+  .catch(() => $("#sub").textContent = "No se pudo cargar data.json");
+</script>
+</body>
+</html>

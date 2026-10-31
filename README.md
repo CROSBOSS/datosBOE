@@ -56,6 +56,12 @@ reales. Tras la primera descarga:
 ## Automatización (GitHub Actions)
 El workflow `.github/workflows/borme-diario.yml` se ejecuta de lunes a viernes, descarga los últimos 5 días de Valencia, carga la base y hace commit de `data/`. Para el histórico: pestaña Actions → "BORME diario" → Run workflow, con `desde`.
 
+## Web
+`site/index.html` es una web estática (sin servidor) que lee `site/data.json`.
+El workflow lo regenera en cada ejecución y lo publica en GitHub Pages.
+Activar una vez: Settings → Pages → Source: **GitHub Actions**.
+En local: `python -m borme.exportar && python -m http.server -d site`.
+
 ## Siguientes pasos
 - Envío de alertas por email/Teams (cron diario tras la publicación, ~7:30).
 - Histórico desde 2009 y todas las provincias -> pasar a PostgreSQL.
