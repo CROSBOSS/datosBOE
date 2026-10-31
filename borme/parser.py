@@ -42,7 +42,7 @@ ACTOS = [
     "Fe de erratas", "Reactivación de la sociedad", "Unipersonalidad",
 ]
 _ACTOS_RE = re.compile(
-    r"(?:^|(?<=\.\s))(" + "|".join(re.escape(a) for a in sorted(set(ACTOS), key=len, reverse=True)) + r")(?=[.:]\s|[.:]?$)"
+    r"(?:^|(?<=\.\s)|(?<=\.-\s)|(?<=\s-\s))(" + "|".join(re.escape(a) for a in sorted(set(ACTOS), key=len, reverse=True)) + r")(?=[.:]\s|[.:]?$)"
 )
 
 # Cargos conocidos (para separar "Cargo: Persona;Persona.")
@@ -63,7 +63,7 @@ _CARGOS_RE = re.compile(
 _CABECERA_RE = re.compile(r"^\s*(\d{3,7})\s*-\s*(.+)$", re.S)
 _HOJA_RE = re.compile(r"\bH\s+([A-Z]{1,3})\s*[- ]?\s*(\d+)")
 _FECHA_INS_RE = re.compile(r"\((\d{1,2})\.(\d{1,2})\.(\d{2,4})\)")
-_CAMPOS_CONST_RE = re.compile(r"(?:^|(?<=\.\s))(Comienzo de operaciones|Objeto social|Domicilio|Capital|Duración):\s")
+_CAMPOS_CONST_RE = re.compile(r"\b(Comienzo de operaciones|Objeto social|Domicilio|Capital|Duración):\s")
 _ABREV_FINAL_RE = re.compile(r"(?:\b[A-Z]{1,5}\.){2,}$")  # S.L. S.A. S.L.P. S.COOP. ...
 
 
@@ -112,6 +112,25 @@ def _limpiar_nombre(nombre: str) -> str:
     return nombre[:-1] if nombre.endswith(".") else nombre
 
 
+_ARTICULO_RE = re.compile(r"^(.*?)\s*\((LA|EL|LOS|LAS|L'|ELS|LES|SA|ES)\)$")
+
+
+def municipio(domicilio: str | None) -> str | None:
+    """'C/ MAYOR 1 (ELIANA (L'))' -> "L'ELIANA"; 'X (POBLA DE VALLBONA (LA))' -> 'LA POBLA DE VALLBONA'."""
+    if not domicilio:
+        return None
+    m = re.search(r"\(([^()]*(?:\([^()]*\))?)\)\s*\.?\s*$", domicilio.strip())
+    if not m:
+        mm = re.findall(r"\(([^()]+)\)", domicilio)
+        return mm[-1].strip() if mm else None
+    mun = re.sub(r"\s+", " ", m.group(1)).strip()
+    a = _ARTICULO_RE.match(mun)
+    if a:
+        base, art = a.groups()
+        mun = f"{art}{base}" if art.endswith("'") else f"{art} {base}"
+    return mun or None
+
+
 def _cargos(texto: str) -> list[dict]:
     """'Adm. Solid.: A;B. Apoderado: C.' -> [{cargo, persona}, ...]"""
     out = []
@@ -131,6 +150,8 @@ def _campos_constitucion(texto: str) -> dict:
     out = {}
     for i, m in enumerate(ms):
         fin = ms[i + 1].start() if i + 1 < len(ms) else len(texto)
+        if m.group(1) == "Objeto social" and m.group(1) in out:
+            continue  # el objeto social es el primero; los demás campos, el último
         out[m.group(1)] = texto[m.end():fin].strip().rstrip(".").strip()
     res = {
         "comienzo_operaciones": out.get("Comienzo de operaciones"),
@@ -138,9 +159,7 @@ def _campos_constitucion(texto: str) -> dict:
         "domicilio": out.get("Domicilio"),
         "capital": importe(out.get("Capital")),
     }
-    if res["domicilio"]:
-        mm = re.findall(r"\(([^()]+)\)", res["domicilio"])
-        res["municipio"] = mm[-1].strip() if mm else None
+    res["municipio"] = municipio(res["domicilio"])
     return res
 
 
@@ -155,8 +174,8 @@ def _campos_acto(tipo: str, texto: str) -> dict:
         antes, _, despues = texto.partition("Resultante Suscrito:")
         return {"importe": importe(antes), "capital_resultante": importe(despues) if despues else None}
     if tipo == "Cambio de domicilio social":
-        mm = re.findall(r"\(([^()]+)\)", texto)
-        return {"domicilio": texto.strip().rstrip("."), "municipio": mm[-1].strip() if mm else None}
+        dom = texto.strip().rstrip(".")
+        return {"domicilio": dom, "municipio": municipio(dom)}
     if tipo == "Cambio de denominación social":
         return {"nuevo_nombre": _limpiar_nombre(texto.strip())}
     if tipo in ("Cambio de objeto social", "Ampliación del objeto social", "Ampliacion del objeto social"):
@@ -196,29 +215,43 @@ def parsear_anuncio(texto: str) -> Anuncio | None:
     return an
 
 
-def _parrafos_xml(contenido: bytes) -> list[str]:
+def _parrafos_xml(contenido: bytes) -> list[tuple[str, str]]:
+    """Lista de (clase, texto) de los <p> del documento. clase='articulo' abre un anuncio."""
     try:
         root = ET.fromstring(contenido)
     except ET.ParseError:
         txt = re.sub(rb"<[^>]+>", b"\n", contenido).decode("utf-8", "replace")
-        return [l for l in txt.splitlines() if l.strip()]
+        return [("", l) for l in txt.splitlines() if l.strip()]
     if root.tag == "error":
         return []
     texto = root.find(".//texto")
     base = texto if texto is not None else root
-    ps = ["".join(p.itertext()) for p in base.iter() if p.tag == "p"]
+    ps = [(p.get("class", ""), "".join(p.itertext())) for p in base.iter() if p.tag == "p"]
     if not ps:
-        ps = ["".join(base.itertext())]
-    return [p for p in ps if p.strip()]
+        ps = [("", "".join(base.itertext()))]
+    return [(c, t) for c, t in ps if t.strip()]
 
 
 def parsear_xml(contenido: bytes) -> list[Anuncio]:
-    """Agrupa párrafos en anuncios (un anuncio empieza por 'NNNNNN - ')."""
+    """Agrupa párrafos en anuncios.
+
+    Formato actual: <p class="articulo">NNNNNN - EMPRESA.</p> abre cada anuncio y los
+    <p class="parrafo"> siguientes son su cuerpo. Sin clases, se usa la cabecera 'NNNNNN - '.
+    """
+    parrafos = _parrafos_xml(contenido)
+    con_clase = any(c == "articulo" for c, _ in parrafos)
     bloques: list[str] = []
-    for p in _parrafos_xml(contenido):
+    for clase, p in parrafos:
         p = re.sub(r"\s+", " ", p).strip()
-        # si todo el texto viene en un bloque, separar por cabeceras
-        partes = re.split(r"(?<=\.)\s+(?=\d{3,7} - [A-ZÁÉÍÓÚÑÜ0-9\"'(])", p)
+        if con_clase:
+            if clase == "articulo" or not bloques:
+                bloques.append(p)
+            else:
+                bloques[-1] += " " + p
+            continue
+        partes = [p]
+        if len(parrafos) == 1:  # todo el texto en un bloque: separar por cabeceras
+            partes = re.split(r"(?<=\.)\s+(?=\d{5,7} - [A-ZÁÉÍÓÚÑÜ0-9\"'(])", p)
         for parte in partes:
             if _CABECERA_RE.match(parte) or not bloques:
                 bloques.append(parte)

@@ -12,6 +12,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .cnae_secciones import NOMBRE_DIVISION
 from .db import conectar
 
 TIPOS_EVENTO = ("Constitución", "Extinción", "Disolución", "Situación concursal",
@@ -24,9 +25,11 @@ def exportar(con) -> dict:
     q = lambda sql, *a: [dict(r) for r in con.execute(sql, a).fetchall()]
     ultima = (q("SELECT MAX(fecha) f FROM documentos")[0]["f"]) or datetime.now().date().isoformat()
 
-    empresas = q("""
+    tiene_cnae = con.execute("SELECT 1 FROM sqlite_master WHERE name='clasificacion'").fetchone()
+    cnae_col = "(SELECT division FROM clasificacion WHERE empresa_id=empresas.id)" if tiene_cnae else "NULL"
+    empresas = q(f"""
         SELECT id, nombre n, provincia_cod p, municipio m, estado s, fecha_constitucion fc,
-               capital c, objeto_social o, ultima_aparicion u, n_actos k,
+               capital c, objeto_social o, ultima_aparicion u, n_actos k, {cnae_col} d,
                (SELECT MAX(fecha) FROM actos WHERE empresa_id=empresas.id AND tipo='Extinción') fx,
                (SELECT MAX(fecha) FROM actos WHERE empresa_id=empresas.id AND tipo IN
                    ('Situación concursal','Anotación preventiva. Declaración de concurso')) fk
@@ -49,6 +52,7 @@ def exportar(con) -> dict:
         "ultima_publicacion": ultima,
         "documentos": q("SELECT COUNT(*) n FROM documentos")[0]["n"],
         "provincias": provincias,
+        "divisiones": NOMBRE_DIVISION,
         "empresas": empresas,
         "eventos": eventos,
     }

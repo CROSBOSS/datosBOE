@@ -62,7 +62,7 @@
   .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 999px;
     border: 1px solid currentColor; white-space: nowrap; }
   .b-activa { color: var(--good); } .b-disuelta { color: var(--warning); }
-  .b-extinguida { color: var(--text-muted); } .b-concurso { color: var(--critical); }
+  .b-extinguida, .b-inactiva { color: var(--text-muted); } .b-concurso { color: var(--critical); }
   .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
   .pager button { font: inherit; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-primary);
     border-radius: 6px; padding: 4px 10px; cursor: pointer; }
@@ -154,7 +154,7 @@ const fmtN = n => n.toLocaleString("es-ES");
 const fmtE = n => n == null ? "–" : n.toLocaleString("es-ES", { maximumFractionDigits: 0 }) + " €";
 const fmtD = s => s ? s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(2, 4) : "";
 const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const ESTADOS = { activa: "Activa", disuelta: "Disuelta", extinguida: "Extinguida", concurso: "⚠ Concurso" };
+const ESTADOS = { activa: "Activa", inactiva: "Cierre provisional", disuelta: "Disuelta", extinguida: "Extinguida", concurso: "⚠ Concurso" };
 const tip = $("#tip");
 let D, porId, st = { prov: "", mun: "", obj: [], semanas: 13, vista: "nuevas", q: "", sortK: "fecha", sortD: -1, pag: 0 };
 

@@ -7,14 +7,16 @@ constituciones, cambios (domicilio, objeto, capital, denominación) y bajas
 ## Puesta en marcha
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt            # pipeline
+pip install -r requirements-dashboard.txt  # solo para el dashboard Streamlit
 python -m pytest -q                                   # tests del parser
 
 # 1) Descargar 12 meses de Valencia (código INE 46). ~1 petición/seg -> unos 10 min
 python -m borme.ingest --desde 2025-11-01 --provincia 46
 
-# 2) Parsear y cargar en SQLite (data/borme.sqlite)
+# 2) Parsear y cargar en SQLite (data/borme.sqlite) y clasificar por actividad
 python -m borme.db
+python -m borme.cnae            # --evaluar para medir el acierto
 
 # 3) Dashboard
 streamlit run dashboard.py
@@ -53,8 +55,19 @@ reales. Tras la primera descarga:
    en bruto se conservan.
 3. Compara 50 anuncios con el PDF del BORME de ese día.
 
+## Clasificación por actividad (CNAE)
+`borme/cnae.py` asigna a cada empresa una división CNAE (2 dígitos), sin coste:
+1. Si el objeto social declara el código ("CNAE 43.22", "Actividad principal: 81.22"), se usa ese (~45% de las constituciones recientes).
+2. Para el resto, un modelo TF-IDF + regresión logística entrenado con esos ejemplos. Solo se guarda si la confianza es >= 0,5.
+Medido con 12 meses de Valencia: 79% de acierto en la división, ~90% con confianza alta.
+
+## Dónde están los datos
+La base (`borme.sqlite.gz`), el `data.json` de la web y los XML por año (`raw-AAAA.tar.gz`) se guardan en la release **datos** del repo, no en git (la base supera el límite de 100 MB de GitHub). Para trabajar en local:
+`gh release download datos -p borme.sqlite.gz -D data && gunzip data/borme.sqlite.gz`.
+Tras cambiar el parser: Run workflow con **reprocesar** marcado.
+
 ## Automatización (GitHub Actions)
-El workflow `.github/workflows/borme-diario.yml` se ejecuta de lunes a viernes, descarga los últimos 5 días de Valencia, carga la base y hace commit de `data/`. Para el histórico: pestaña Actions → "BORME diario" → Run workflow, con `desde`.
+El workflow `.github/workflows/borme-diario.yml` se ejecuta de lunes a viernes, descarga los últimos 5 días de Valencia, carga la base clasifica por CNAE y guarda todo en la release `datos`. Para el histórico: pestaña Actions → "BORME diario" → Run workflow, con `desde`.
 
 ## Web
 `site/index.html` es una web estática (sin servidor) que lee `site/data.json`.

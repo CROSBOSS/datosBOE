@@ -38,6 +38,8 @@ def main(argv=None):
     for r in q("SELECT texto FROM actos WHERE tipo NOT IN ('Constitución','Cambio de objeto social') "
                "AND fecha >= (SELECT MAX(fecha) FROM documentos) LIMIT 5000"):
         for m in re.finditer(r"(?:^|\.\s)([A-ZÁÉÍÓÚ][a-záéíóúñ]+(?: [a-záéíóúñ/]+){0,6})\.(?=\s|$)", r["texto"] or ""):
+            if m.group(1) in ("Adm", "Voluntaria", "Apo", "Con", "Cons"):
+                continue
             sospechas[m.group(1)] = sospechas.get(m.group(1), 0) + 1
     if sospechas:
         print("- Posibles tipos de acto no reconocidos (revisar y añadir a `ACTOS`):")

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS empresas (
     id INTEGER PRIMARY KEY,
     clave TEXT UNIQUE,              -- provincia+hoja registral, o nombre normalizado
     nombre TEXT, nombre_norm TEXT, provincia_cod TEXT, provincia TEXT, hoja TEXT,
-    estado TEXT DEFAULT 'activa',   -- activa | disuelta | extinguida | concurso
+    estado TEXT DEFAULT 'activa',   -- activa | inactiva | concurso | disuelta | extinguida
     fecha_constitucion TEXT, objeto_social TEXT, domicilio TEXT, municipio TEXT,
     capital REAL, primera_aparicion TEXT, ultima_aparicion TEXT, n_actos INTEGER DEFAULT 0
 );
@@ -45,9 +45,12 @@ ESTADO_POR_ACTO = {
     "Situación concursal": "concurso",
     "Anotación preventiva. Declaración de concurso": "concurso",
     "Reapertura hoja registral": "activa",
+    "Cierre provisional hoja registral por baja en el índice de Entidades Jurídicas": "inactiva",
+    "Cierre provisional de la hoja registral por revocación del NIF": "inactiva",
+    "Cierre provisional hoja registral por no haber depositado cuentas anuales": "inactiva",
     "Reactivación de la sociedad": "activa",
 }
-PRIORIDAD = {"activa": 0, "concurso": 1, "disuelta": 2, "extinguida": 3}
+PRIORIDAD = {"activa": 0, "inactiva": 1, "concurso": 2, "disuelta": 3, "extinguida": 4}
 
 
 def conectar(ruta: str | Path) -> sqlite3.Connection:

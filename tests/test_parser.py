@@ -89,3 +89,41 @@ def test_carga_bd(tmp_path: Path):
     assert e["fecha_constitucion"] == "2026-10-20" and e["n_actos"] == 6
     assert emp["TALLERES RUZAFA S.L."]["estado"] == "extinguida"
     assert len(emp) == 2
+
+
+# --- Casos detectados con XML reales (texto sintético con la misma estructura) ---
+from borme.parser import municipio
+
+
+def test_municipio_con_articulo():
+    assert municipio("C/ MAYOR 1 (ELIANA (L'))") == "L'ELIANA"
+    assert municipio("AV SUR 3 (POBLA DE VALLBONA (LA))") == "LA POBLA DE VALLBONA"
+    assert municipio("C/ COLON 5 (VALENCIA).") == "VALENCIA"
+
+
+def test_separador_guion():
+    a = parsear_anuncio("412348 - BODEGAS EJEMPLO SL. MODIFICACION DE ESTATUTOS.- Datos registrales. "
+                        "S 8 , H V 15190, I/A 14 (28.10.25).")
+    assert a.hoja == "V-15190"
+
+
+def test_clases_articulo_parrafo_con_cnae_en_objeto():
+    xml = ('<documento><texto><p class="articulo">412349 - EDITORIAL EJEMPLO SL.</p>'
+           '<p class="parrafo">Constitución. Objeto social: Actividades:</p>'
+           '<p class="parrafo">5811 - Edición de libros</p>'
+           '<p class="parrafo">Domicilio: C/ PAZ 1 (VALENCIA). Capital: 3.000,00 Euros. Datos registrales. '
+           'S 8 , H V 300, I/A 1 (1.10.26).</p>'
+           '<p class="articulo">412350 - OTRA EMPRESA SL.</p><p class="parrafo">Extinción. Datos registrales. '
+           'S 8 , H V 301, I/A 3 (1.10.26).</p></texto></documento>').encode()
+    out = parsear_xml(xml)
+    assert [a.numero for a in out] == [412349, 412350]
+    assert out[0].actos[0].campos["municipio"] == "VALENCIA"
+    assert "Edición de libros" in out[0].actos[0].campos["objeto_social"]
+
+
+def test_cnae_explicito():
+    from borme.cnae import extraer_explicito
+    assert extraer_explicito("Actividad principal: 81.22 / Limpieza industrial") == "81"
+    assert extraer_explicito('Tendrá por objeto: "CNAE 64.21.-Actividades de holding"') == "64"
+    assert extraer_explicito("Restaurantes (Clasificación Nacional de Actividades Económicas 2025: 56.11)") == "56"
+    assert extraer_explicito("Compraventa de inmuebles") is None

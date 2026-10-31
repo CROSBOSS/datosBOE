@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .venv/
 site/data.json
+data/borme.sqlite
+data/*.gz

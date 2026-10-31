@@ -18,6 +18,10 @@ on:
         description: "Códigos INE separados por comas (vacío = todas)"
         required: false
         default: "46"
+      reprocesar:
+        description: "Reconstruir la base desde todos los XML guardados (tras cambiar el parser)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -27,6 +31,9 @@ permissions:
 concurrency:
   group: borme
   cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   actualizar:
@@ -40,10 +47,27 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - run: pip install requests pytest
+      - run: pip install -r requirements.txt
 
       - name: Tests del parser
         run: python -m pytest -q
+
+      # Los datos viven en la release "datos" (la base supera el límite de ficheros de git)
+      - name: Recuperar datos anteriores
+        env:
+          REPROCESAR: ${{ inputs.reprocesar }}
+        run: |
+          mkdir -p data/raw
+          if [ "$REPROCESAR" = "true" ]; then
+            echo "Reprocesando desde los XML guardados"
+            gh release download datos -p 'raw-*.tar.gz' -D /tmp/raw --clobber || true
+            for t in /tmp/raw/raw-*.tar.gz; do [ -f "$t" ] && tar -xzf "$t" -C data/raw; done
+            rm -f data/borme.sqlite
+          elif gh release download datos -p borme.sqlite.gz -D data --clobber; then
+            gunzip -f data/borme.sqlite.gz
+          else
+            echo "Sin base previa: se construye desde los XML del repositorio"
+          fi
 
       - name: Descargar BORME
         env:
@@ -60,27 +84,38 @@ jobs:
       - name: Cargar en SQLite
         run: python -m borme.db
 
+      - name: Clasificar por actividad (CNAE)
+        run: python -m borme.cnae
+
       - name: Informe
         run: python -m borme.informe >> "$GITHUB_STEP_SUMMARY"
 
       - name: Exportar datos para la web
         run: python -m borme.exportar --db data/borme.sqlite --out site/data.json
 
+      - name: Guardar datos en la release
+        run: |
+          gh release view datos >/dev/null 2>&1 || gh release create datos --title "Datos BORME" \
+            --notes "Base de datos (borme.sqlite.gz) y XML en bruto por año (raw-AAAA.tar.gz). Los actualiza el workflow diario."
+          gzip -kf data/borme.sqlite
+          gh release upload datos data/borme.sqlite.gz site/data.json --clobber
+          for y in $(ls data/raw); do
+            rm -rf /tmp/prev && mkdir -p /tmp/prev
+            if gh release download datos -p "raw-$y.tar.gz" -D /tmp/prev 2>/dev/null; then
+              tar -xzf "/tmp/prev/raw-$y.tar.gz" -C data/raw
+            fi
+            tar -czf "/tmp/raw-$y.tar.gz" -C data/raw "$y"
+            gh release upload datos "/tmp/raw-$y.tar.gz" --clobber
+          done
+
       - uses: actions/upload-pages-artifact@v3
+        if: vars.PAGES_ENABLED == 'true'
         with:
           path: site
 
-      - name: Guardar datos en el repo
-        run: |
-          git config user.name "borme-bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/
-          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
-          git commit -m "Datos BORME $(date -u +%F)"
-          git push
-
   web:
     needs: actualizar
+    if: vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
