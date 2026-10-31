@@ -90,6 +90,10 @@ jobs:
       - name: Informe
         run: python -m borme.informe >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Contexto por sector (noticias GDELT y normativa BOE)
+        continue-on-error: true
+        run: python -m borme.contexto --out site/contexto.json
+
       - name: Exportar datos para la web
         run: python -m borme.exportar --db data/borme.sqlite --out site/data.json
 
@@ -98,7 +102,7 @@ jobs:
           gh release view datos >/dev/null 2>&1 || gh release create datos --title "Datos BORME" \
             --notes "Base de datos (borme.sqlite.gz) y XML en bruto por año (raw-AAAA.tar.gz). Los actualiza el workflow diario."
           gzip -kf data/borme.sqlite
-          gh release upload datos data/borme.sqlite.gz site/data.json --clobber
+          gh release upload datos data/borme.sqlite.gz site/data.json $( [ -f site/contexto.json ] && echo site/contexto.json ) --clobber
           for y in $(ls data/raw); do
             rm -rf /tmp/prev && mkdir -p /tmp/prev
             if gh release download datos -p "raw-$y.tar.gz" -D /tmp/prev 2>/dev/null; then
